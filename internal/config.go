@@ -1,4 +1,4 @@
-package main
+package internal
 
 // custom config things for this
 
