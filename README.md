@@ -2,6 +2,25 @@
 
 consensus driven multi-agent reasoning through committed deliberation
 
+## Architecture 
+
+For the high level architecture and why is this useuful : [architecture](./docs/ARCHITECTURE.md)
+
+## CLI
+
+Start one Raft-backed node:
+
+```bash
+go run . node --id node1 --haddr localhost:11000 --raddr localhost:12000 /tmp/delibera/node1
+```
+
+Start a local development cluster:
+
+```bash
+go run . start --data-dir /tmp/delibera --nodes 3
+```
+
+The Cobra app entrypoint is `main.go`, which calls the `cmd` package. Node startup logic lives in `internal/node`, and Cobra commands live directly under `cmd`.
 
 ## Using `hashicorp/raft`
 - When using library, need to implement 3 main interfaces:
@@ -29,4 +48,3 @@ https://huggingface.co/papers/2511.07784?
 - MMLU
 - TruthfulQA
 - GSM8K
-

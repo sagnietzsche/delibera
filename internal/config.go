@@ -6,4 +6,5 @@ package internal
 const (
 	DefaultHTTPAddr = "localhost:11000"
 	DefaultRaftAddr = "localhost:12000"
+	DefaultDataDir  = "/tmp/delibera"
 )

@@ -6,6 +6,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/otoolep/hraftd v0.0.0-20250817132209-b931e1f8956e
 	github.com/sashabaranov/go-openai v1.41.2
+	github.com/spf13/cobra v1.10.2
 )
 
 require (
@@ -21,7 +22,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	go.etcd.io/bbolt v1.3.10 // indirect
 	golang.org/x/sys v0.21.0 // indirect
