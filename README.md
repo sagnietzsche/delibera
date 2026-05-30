@@ -6,6 +6,25 @@ consensus driven multi-agent reasoning through committed deliberation
 
 For the high level architecture and why is this useuful : [architecture](./docs/ARCHITECTURE.md)
 
+## Taskfile Reference
+
+| Task | Description |
+|---|---|
+| `task build` | Full build — runs `fmt` + `vet` first, embeds git version via ldflags, outputs to `bin/delibera` |
+| `task build:fast` | Build without fmt/vet for quick iteration |
+| `task install` | `go install` to `$GOPATH/bin` |
+| `task deps` | `go mod download` + `go mod tidy` |
+| `task fmt` | `go fmt ./...` |
+| `task vet` | `go vet ./...` |
+| `task test` | Full test suite with `-race` and 60s timeout |
+| `task test:short` | Short/fast tests only |
+| `task clean` | Remove `bin/`, `dist/`, and `/tmp/delibera` cluster data |
+| `task dev:node` | Build + start a single `node1` on `localhost:11000` |
+| `task dev:cluster` | Build + start a 3-node local cluster |
+| `task dev:ask -- "..."` | Build + run `ask` with your question |
+| `task release` | Cross-compile for `linux/amd64`, `linux/arm64`, `darwin/arm64`, `darwin/amd64` into `dist/` |
+
+
 ## CLI
 
 Start one Raft-backed node:
@@ -18,6 +37,12 @@ Start a local development cluster:
 
 ```bash
 go run . start --data-dir /tmp/delibera --nodes 3
+```
+
+Ask the configured LLM provider:
+
+```bash
+GROQ_API_KEY=... go run . ask "What is deliberative consensus?"
 ```
 
 The Cobra app entrypoint is `main.go`, which calls the `cmd` package. Node startup logic lives in `internal/node`, and Cobra commands live directly under `cmd`.

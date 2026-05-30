@@ -1,0 +1,106 @@
+version: "3"
+
+vars:
+  BINARY: delibera
+  BIN_DIR: bin
+  MODULE:
+    sh: go list -m
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+  LDFLAGS: >-
+    -X main.version={{.VERSION}}
+    -s -w
+
+tasks:
+  default:
+    desc: List available tasks
+    cmd: task --list
+
+  deps:
+    desc: Download and tidy Go module dependencies
+    cmds:
+      - go mod download
+      - go mod tidy
+
+  fmt:
+    desc: Format Go source files
+    cmd: go fmt ./...
+
+  vet:
+    desc: Run go vet on all packages
+    cmd: go vet ./...
+
+  build:
+    desc: Build the delibera binary into bin/
+    deps: [fmt, vet]
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -ldflags "{{.LDFLAGS}}" -o {{.BIN_DIR}}/{{.BINARY}} .
+    sources:
+      - "**/*.go"
+      - go.mod
+      - go.sum
+    generates:
+      - "{{.BIN_DIR}}/{{.BINARY}}"
+
+  build:fast:
+    desc: Build without fmt/vet (faster iteration)
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build -o {{.BIN_DIR}}/{{.BINARY}} .
+
+  install:
+    desc: Install delibera to $GOPATH/bin (or ~/go/bin)
+    cmd: go install -ldflags "{{.LDFLAGS}}" .
+
+  test:
+    desc: Run all tests
+    cmd: go test ./... -v -race -timeout 60s
+
+  test:short:
+    desc: Run tests in short mode (skip slow integration tests)
+    cmd: go test ./... -short -timeout 30s
+
+  clean:
+    desc: Remove build artifacts and temporary cluster data
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - rm -rf /tmp/delibera
+
+  # ── Development helpers ────────────────────────────────────────────────── #
+
+  dev:node:
+    desc: Start a single Raft node (node1) for local development
+    deps: [build:fast]
+    cmd: >-
+      {{.BIN_DIR}}/{{.BINARY}} node
+      --id node1
+      --haddr localhost:11000
+      --raddr localhost:12000
+      /tmp/delibera/node1
+
+  dev:cluster:
+    desc: Start a 3-node local cluster
+    deps: [build:fast]
+    cmd: >-
+      {{.BIN_DIR}}/{{.BINARY}} start
+      --data-dir /tmp/delibera
+      --nodes 3
+
+  dev:ask:
+    desc: "Send a question to the LLM provider (usage: task dev:ask -- 'your question')"
+    deps: [build:fast]
+    cmd: >-
+      {{.BIN_DIR}}/{{.BINARY}} ask {{.CLI_ARGS}}
+
+  # ── Cross-platform release builds ─────────────────────────────────────── #
+
+  release:
+    desc: Build release binaries for linux/amd64, linux/arm64, and darwin/arm64
+    deps: [fmt, vet]
+    cmds:
+      - mkdir -p dist
+      - GOOS=linux  GOARCH=amd64  go build -ldflags "{{.LDFLAGS}}" -o dist/{{.BINARY}}-linux-amd64   .
+      - GOOS=linux  GOARCH=arm64  go build -ldflags "{{.LDFLAGS}}" -o dist/{{.BINARY}}-linux-arm64   .
+      - GOOS=darwin GOARCH=arm64  go build -ldflags "{{.LDFLAGS}}" -o dist/{{.BINARY}}-darwin-arm64  .
+      - GOOS=darwin GOARCH=amd64  go build -ldflags "{{.LDFLAGS}}" -o dist/{{.BINARY}}-darwin-amd64  .

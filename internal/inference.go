@@ -2,51 +2,97 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	openai "github.com/sashabaranov/go-openai"
 )
 
-func DefaultInference() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+type LLMProvider interface {
+	Prompt(ctx context.Context, userMessage string) (string, error)
+}
+
+type OpenAICompatibleProvider struct {
+	client      *openai.Client
+	model       string
+	maxTokens   int
+	temperature float32
+	topP        float32
+}
+
+func NewInferenceProviderFromEnv() (*OpenAICompatibleProvider, error) {
+	_ = godotenv.Load()
+
+	apiKey := os.Getenv(InferenceAPIKeyEnv)
+	if apiKey == "" {
+		return nil, fmt.Errorf("%s is required", InferenceAPIKeyEnv)
 	}
 
-	config := openai.DefaultConfig(os.Getenv("GROQ_API_KEY"))
-	config.BaseURL = "https://api.groq.com/openai/v1"
+	config := openai.DefaultConfig(apiKey)
+	config.BaseURL = InferenceBaseURL
 
-	client := openai.NewClientWithConfig(config)
+	return &OpenAICompatibleProvider{
+		client:      openai.NewClientWithConfig(config),
+		model:       Model,
+		maxTokens:   512,
+		temperature: 1.0,
+		topP:        1.0,
+	}, nil
+}
 
-	stream, err := client.CreateChatCompletionStream(
-		context.Background(),
+func (p *OpenAICompatibleProvider) Prompt(ctx context.Context, userMessage string) (string, error) {
+	userMessage = strings.TrimSpace(userMessage)
+	if userMessage == "" {
+		return "", errors.New("user message is required")
+	}
+
+	stream, err := p.client.CreateChatCompletionStream(
+		ctx,
 		openai.ChatCompletionRequest{
-			Model: "openai/gpt-oss-120b",
+			Model: p.model,
 			Messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleUser,
-					Content: "What is the meaning of life?",
+					Content: userMessage,
 				},
 			},
-			MaxTokens:   512,
-			Temperature: 1.0,
-			TopP:        1.0,
+			MaxTokens:   p.maxTokens,
+			Temperature: p.temperature,
+			TopP:        p.topP,
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 	defer stream.Close()
 
+	var response strings.Builder
 	for {
 		resp, err := stream.Recv()
-		if err != nil {
+		if errors.Is(err, io.EOF) {
 			break
 		}
-		fmt.Print(resp.Choices[0].Delta.Content)
+		if err != nil {
+			return "", err
+		}
+		if len(resp.Choices) == 0 {
+			continue
+		}
+		response.WriteString(resp.Choices[0].Delta.Content)
 	}
 
-	fmt.Println()
+	return response.String(), nil
+}
+
+func CallInference(ctx context.Context, userMessage string) (string, error) {
+	provider, err := NewInferenceProviderFromEnv()
+	if err != nil {
+		return "", err
+	}
+
+	return provider.Prompt(ctx, userMessage)
 }
