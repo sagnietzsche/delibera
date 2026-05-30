@@ -28,15 +28,17 @@ The Cobra app entrypoint is `main.go`, which calls the `cmd` package. Node start
     - LogStore : underlying storage mechanism to durably persist Raft log entries 
     - StableStore: used to store a stable Raft configuration state such as the current term and the voted candidates.
 
-
-
-## references:
+## References:
 
 1. Improving Factuality and Reasoning in Language Models through Multiagent Debate (ICML 2024)
- - What if agents vote on reasoning steps rather than debate until convergence?
+ - Why ? 
+    - What if agents vote on reasoning steps rather than debate until convergence?
+ - Ref:  https://arxiv.org/abs/2305.14325 
 2. ReConcile: Round-Table Conference Improves Reasoning via Consensus among Diverse LLMs
- - Round table of diverse models that can discuss, share confidence scores and reach a confidence-weighted consensus. 
- - They report improvements over both single-agent and prior multi-agent methods.
+ - Why ?
+    - Round table of diverse models that can discuss, share confidence scores and reach a confidence-weighted consensus. 
+    - They report improvements over both single-agent and prior multi-agent methods.
+ - Ref: https://arxiv.org/abs/2309.13007 
 
 3. CONSENSAGENT (ACL Findings 2025)
 http://papers.cool/venue/2025.findings-acl.1141%40ACL
@@ -48,3 +50,7 @@ https://huggingface.co/papers/2511.07784?
 - MMLU
 - TruthfulQA
 - GSM8K
+
+## LICENSE
+
+MIT 
