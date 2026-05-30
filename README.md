@@ -25,29 +25,10 @@ For the high level architecture and why is this useuful : [architecture](./docs/
 | `task release` | Cross-compile for `linux/amd64`, `linux/arm64`, `darwin/arm64`, `darwin/amd64` into `dist/` |
 
 
-## CLI
+## Package Structure 
 
-Start one Raft-backed node:
+- The Cobra app entrypoint is `main.go`, which calls the `cmd` package. Node startup logic lives in `internal/node`, and Cobra commands live directly under `cmd`.
 
-```bash
-go run . node --id node1 --haddr localhost:11000 --raddr localhost:12000 /tmp/delibera/node1
-```
-
-Start a local development cluster:
-
-```bash
-go run . start --data-dir /tmp/delibera --nodes 3
-```
-
-Ask the configured LLM provider:
-
-```bash
-GROQ_API_KEY=... go run . ask "What is deliberative consensus?"
-```
-
-The Cobra app entrypoint is `main.go`, which calls the `cmd` package. Node startup logic lives in `internal/node`, and Cobra commands live directly under `cmd`.
-
-## Using `hashicorp/raft`
 - When using library, need to implement 3 main interfaces:
     - FSM (Finite State Machine) : Custom application logic. FSM applies the committed log entries to our actual system state.
     - LogStore : underlying storage mechanism to durably persist Raft log entries 
