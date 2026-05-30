@@ -1,52 +1,97 @@
 package main
 
 import (
-	"context"
+	"bytes"
+	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"os/signal"
 
-	"github.com/joho/godotenv"
-	openai "github.com/sashabaranov/go-openai"
+	httpd "github.com/otoolep/hraftd/http"
+	"github.com/otoolep/hraftd/store"
 )
 
+// Command line parameters
+var (
+	inmem    bool
+	httpAddr string
+	raftAddr string
+	joinAddr string
+	nodeID   string
+)
+
+func init() {
+	flag.BoolVar(&inmem, "inmem", false, "Use in-memory storage for Raft")
+	flag.StringVar(&httpAddr, "haddr", DefaultHTTPAddr, "Set the HTTP bind address")
+	flag.StringVar(&raftAddr, "raddr", DefaultRaftAddr, "Set Raft bind address")
+	flag.StringVar(&joinAddr, "join", "", "Set join address, if any")
+	flag.StringVar(&nodeID, "id", "", "Node ID. If not set, same as Raft bind address")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] <raft-data-path> \n", os.Args[0])
+		flag.PrintDefaults()
+	}
+}
+
 func main() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
+	flag.Parse()
+	if flag.NArg() == 0 {
+		fmt.Fprintf(os.Stderr, "No Raft storage directory specified\n")
+		os.Exit(1)
 	}
 
-	config := openai.DefaultConfig(os.Getenv("GROQ_API_KEY"))
-	config.BaseURL = "https://api.groq.com/openai/v1"
-
-	client := openai.NewClientWithConfig(config)
-
-	stream, err := client.CreateChatCompletionStream(
-		context.Background(),
-		openai.ChatCompletionRequest{
-			Model: "openai/gpt-oss-120b",
-			Messages: []openai.ChatCompletionMessage{
-				{
-					Role:    openai.ChatMessageRoleUser,
-					Content: "What is the meaning of life?",
-				},
-			},
-			MaxTokens:   512,
-			Temperature: 1.0,
-			TopP:        1.0,
-		},
-	)
-	if err != nil {
-		log.Fatal(err)
+	if nodeID == "" {
+		nodeID = raftAddr
 	}
-	defer stream.Close()
 
-	for {
-		resp, err := stream.Recv()
-		if err != nil {
-			break
+	// Ensure Raft storage exists.
+	raftDir := flag.Arg(0)
+	if raftDir == "" {
+		log.Fatalln("No Raft storage directory specified")
+	}
+	if err := os.MkdirAll(raftDir, 0o700); err != nil {
+		log.Fatalf("failed to create path for Raft storage: %s", err.Error())
+	}
+
+	s := store.New(inmem)
+	s.RaftDir = raftDir
+	s.RaftBind = raftAddr
+	if err := s.Open(joinAddr == "", nodeID); err != nil {
+		log.Fatalf("failed to open store: %s", err.Error())
+	}
+
+	h := httpd.New(httpAddr, s)
+	if err := h.Start(); err != nil {
+		log.Fatalf("failed to start HTTP service: %s", err.Error())
+	}
+
+	// If join was specified, make the join request.
+	if joinAddr != "" {
+		if err := join(joinAddr, raftAddr, nodeID); err != nil {
+			log.Fatalf("failed to join node at %s: %s", joinAddr, err.Error())
 		}
-		fmt.Print(resp.Choices[0].Delta.Content)
 	}
 
-	fmt.Println()
+	// We're up and running!
+	log.Printf("hraftd started successfully, listening on http://%s", httpAddr)
+
+	terminate := make(chan os.Signal, 1)
+	signal.Notify(terminate, os.Interrupt)
+	<-terminate
+	log.Println("hraftd exiting")
+}
+
+func join(joinAddr, raftAddr, nodeID string) error {
+	b, err := json.Marshal(map[string]string{"addr": raftAddr, "id": nodeID})
+	if err != nil {
+		return err
+	}
+	resp, err := http.Post(fmt.Sprintf("http://%s/join", joinAddr), "application-type/json", bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return nil
 }
